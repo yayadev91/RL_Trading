@@ -24,7 +24,7 @@ class FeaturePipeline:
         import yfinance as yf
         df = yf.download(symbol, period=period, interval=interval, auto_adjust=True)
         df = df.reset_index(drop =True)
-        return np.array(df["Close"])
+        return df["Close"].to_numpy().astype(float)
         
     @staticmethod
     def get_yahoo_backtest(symbol=YAHOO_SYMBOL, start=BACKTEST_START,
@@ -42,8 +42,8 @@ class FeaturePipeline:
             interval=interval,
             auto_adjust=True
         )
-        df = df.reset_index(drop=True)
-        return df["Close"]
+        df = df.reset_index()
+        return df
 
     @staticmethod
     def get_binance_data(symbol=BINANCE_SYMBOL, timeframe=BINANCE_TIMEFRAME, days=BINANCE_HISTORY_DAYS):

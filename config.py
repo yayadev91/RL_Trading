@@ -17,7 +17,7 @@ FEATURE_IDX = None
 
 SOURCE = "yahoo"
 
-YAHOO_SYMBOL = "SPY"     # Format Yahoo
+YAHOO_SYMBOL = "BTC-USD"     # Format Yahoo
 YAHOO_TIMEFRAME = "1d"       # Format Yahoo (1h, 1d, etc.)
 YAHOO_HISTORY = "150d"       # Format Yahoo (100d, 2y...)
 YAHOO_INTERVALS = [

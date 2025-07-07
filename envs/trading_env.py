@@ -2,12 +2,16 @@ import numpy as np
 import gymnasium as gym
 from gymnasium import spaces
 from config import *
+from data.feature_pipeline import FeaturePipeline
+
+pipeline = FeaturePipeline()
+prices = pipeline.raw_yahoo_data()
 
 class TradingEnv(gym.Env):
-    def __init__(self, data, window_size=SEQUENCE_LENGTH, initial_cash=INITIAL_CASH,
+    def __init__(self, data, price_series = prices, window_size=SEQUENCE_LENGTH, initial_cash=INITIAL_CASH,
      reward_type=REWARD_TYPE):
         super().__init__()
-        self.qty = INITIAL_QUANTITY
+        self.raw_prices = prices
         self.data = data  # numpy array ou DataFrame
         self.window_size = window_size
         self.initial_cash = initial_cash
@@ -65,15 +69,14 @@ class TradingEnv(gym.Env):
         action = 1 : achète buy_frac de la trésorerie disponible
         action = 2 : vend sell_frac de la position détenue
         """
-        price = self.data[self.current_step, 0]
-        print(f"prix{price}")
+        price = self.raw_prices[self.current_step][0]
+        #print(f"prix{price}")
 
         # Achat
         if action == 1 and self.cash > 0:
             amount_to_spend = self.cash * buy_frac
             shares_to_buy = amount_to_spend / price
             self.position += shares_to_buy
-            print(f"erreur2{amount_to_spend}")
             self.cash -= amount_to_spend
 
         # Vente
@@ -93,8 +96,9 @@ class TradingEnv(gym.Env):
         info = {"portfolio_value": pv}
 
         # Optionnel : reward peut être la variation de portefeuille
-        reward = pv - self.portfolio_value
+        reward = self.compute_reward(price, pv)
         self.portfolio_value = pv
+        self.last_price = price
 
         return self._get_obs(), reward, self.done, False, info
 

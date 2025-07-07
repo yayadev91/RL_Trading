@@ -77,7 +77,7 @@ def train():
     counter = 0
     best_model_path = "best_model_parameters.pt"
     for ep in range(NUM_EPISODES):
-        print(env_train.data[0])
+        #print(env_train.data[0])
         state, _ = env_train.reset(); done=False
         train_rewards = []
         
@@ -112,15 +112,16 @@ def train():
 
     # ——— Sauvegarde ———
     torch.save(agent.q_net.state_dict(), "best_model_parameters.pt")
-    np.save("train_rewards.npy", np.array(all_train_rewards))
-    np.save("val_rewards.npy",   np.array(all_val_rewards))
-    np.save("test_reward.npy",   np.array([test_ret]))
+    #np.save("train_rewards.npy", np.array(all_train_rewards))
+    #np.save("val_rewards.npy",   np.array(all_val_rewards))
+    #np.save("test_reward.npy",   np.array([test_ret]))
+    return np.array(all_train_rewards),np.array(all_val_rewards)
 
 if __name__ == "__main__":
-    train()
+    train_rewards, val_rewards = train()
     import matplotlib.pyplot as plt
-    train_rewards = np.load("train_rewards.npy")
-    val_rewards = np.load("val_rewards.npy")
+    #train_rewards = np.load("train_rewards.npy")
+    #val_rewards = np.load("val_rewards.npy")
     #test_rewards = np.load("test_reward.npy")
     plt.plot(train_rewards, label="Train")
     plt.plot(val_rewards, label="Val")

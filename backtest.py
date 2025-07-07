@@ -45,20 +45,21 @@ def load_trained_agent(model_path: str = "best_model_parameters.pt") -> DQNAgent
     return agent
 
 # 4) Simuler le backtest et renvoyer la courbe d’équité
-def run_backtest(agent: DQNAgent, data: np.ndarray):
-    env = TradingEnv(data, reward_type=REWARD_TYPE)
+def run_backtest(agent: DQNAgent, data: np.ndarray, raw_prices):
+    env = TradingEnv(data, raw_prices, reward_type=REWARD_TYPE)
     state, _ = env.reset()
     done = False
     equity = [env.portfolio_value]
     actions = []
-    quantity = []
-    cashs = []
+    quantity = [env.position]
+    cashs = [env.cash]
     while not done:
-        quantity.append(env.position)
-        cashs.append(env.cash)
+        
         action = agent.select_action(state)
         actions.append(action)
         state, reward, done, truncated, info = env.step(action)
+        quantity.append(env.position)
+        cashs.append(env.cash)
         equity.append(info["portfolio_value"])
         
     return np.array(equity), np.array(actions), np.array(quantity), np.array(cashs)
@@ -77,19 +78,20 @@ def compute_metrics(equity: np.ndarray) -> dict:
 def main():
     # Chargement & préparation 
     raw = load_backtest_data()
+    #print(raw)
     data = prepare_data(raw)
 
     # Agent & backtest
     agent = load_trained_agent()
-    equity_curve, actions, quantity, cashs = run_backtest(agent, data)
+    equity_curve, actions, quantity, cashs = run_backtest(agent, data, raw["Close"].to_numpy().astype(float))
 
     # Alignement des dates
-    dates = pd.to_datetime(raw["Date"].iloc[-len(equity_curve):]).reset_index(drop=True)
+    #dates = pd.to_datetime(raw["Date"].iloc[-len(equity_curve):]).reset_index(drop=True)
     prices = raw["Close"].iloc[-len(equity_curve):].reset_index(drop=True)
 
 
     #Test
-    R_market   = compute_returns(prices["SPY"])
+    R_market   = compute_returns(prices[YAHOO_SYMBOL])
     #print(f"0{R_market}")
     R_strategy = compute_returns(equity_curve)
     #print(f"1{R_strategy}")
@@ -108,13 +110,15 @@ def main():
 
     # Courbe d’équité + Drawdown + Histogramme
     fig, axs = plt.subplots(4, 1, figsize=(12, 14),
-                        gridspec_kw={"height_ratios": [2, 1, 1, 1]})
+                        gridspec_kw={"height_ratios": [3, 1, 1, 1]})
 
     ## 1. Courbe d’équité
     ax1 = axs[0]
     ax2 = ax1.twinx()
-    ax1.plot(dates, equity_curve, marker="o", linestyle="-", color="#1a73e8", label="Equity Curve",alpha=0.7)
+    ax3 = ax1.twinx()
+    ax1.plot(dates, equity_curve, marker="o", linestyle="--", color="#1a73e8", label="Equity Curve",alpha=0.5)
     ax2.plot(dates, prices,     linestyle="--", color="#f9a602", label="Price (Close)", alpha=0.7)
+    ax3.plot(dates, cashs,  linestyle="-.", color="#43aa8b", label="Cash", alpha=0.5)
     ax1.set_ylabel("Portfolio Value")
     ax2.set_ylabel("Price")
     ax1.set_title("Courbe d’équité (bleu) vs Prix du sous-jacent (orange)", fontsize=15, fontweight="bold")
@@ -125,9 +129,9 @@ def main():
     print(actions)
     print(cashs)
     #buy_idx = [i  if actions[i] == 1 and cashs[i] != 0 else -1 for i in range(len(actions))]
-    buy_idx = np.where((actions == 1) & (cashs != 0))[0]
+    buy_idx = np.where((actions == 1) & (cashs[1:] != 0))[0]
     #buy_idx = [np.where(actions == 1 )[0] +1 if cashs != 0 else -1] # +1 car equity_curve est décalé (on ajoute la valeur après chaque step)
-    sell_idx = np.where((actions == 2) & (quantity != 0))[0]
+    sell_idx = np.where((actions == 2) & (quantity[1:] != 0))[0]
     print(f"Buying dates{buy_idx}")
     print(f"Selling dates{sell_idx}")
     print(f"quantité d'actifs{quantity}")
