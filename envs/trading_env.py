@@ -7,7 +7,7 @@ class TradingEnv(gym.Env):
     def __init__(self, data, window_size=SEQUENCE_LENGTH, initial_cash=INITIAL_CASH,
      reward_type=REWARD_TYPE):
         super().__init__()
-        self.qty =
+        self.qty = INITIAL_QUANTITY
         self.data = data  # numpy array ou DataFrame
         self.window_size = window_size
         self.initial_cash = initial_cash
