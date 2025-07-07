@@ -7,6 +7,34 @@ from models.transformer_q import TransformerQNet
 from config import *
 import pickle
 
+import json
+
+try:
+    with open("best_params.json", "r") as f:
+        best_params = json.load(f)
+    print("Override des hyperparams avec Optuna best_params.json")
+except FileNotFoundError:
+    best_params = {}
+    print("Aucun best_params.json trouvé, on garde les configs de base.")
+
+# Override les valeurs
+batch_size      = best_params.get("batch_size",      BATCH_SIZE)
+q_num_layers    = best_params.get("num_layers",      Q_NUM_LAYERS)
+nhead           = best_params.get("nhead",           NHEAD)
+q_dropout       = best_params.get("q_dropout",       Q_DROPOUT)
+q_embedding_dim = best_params.get("q_embedding_dim", Q_EMBEDDING_DIM)
+sequence_length = best_params.get("seq_length",      SEQUENCE_LENGTH)
+lr              = best_params.get("learning_rate",   LR)
+epsilon         = best_params.get("epsilon",         EPSILON)
+epsilon_decay   = best_params.get("epsilon_decay",   EPSILON_DECAY)
+bonus_vente     = best_params.get("bonus_vente",     bonus_coeff)
+penalise_achat  = best_params.get("penalise_achat",  penalty_coeff)
+sell_frac       = best_params.get("sell_frac",       SELL_FRAC)
+buy_frac        = best_params.get("buy_frac",        BUY_FRAC)
+
+print(batch_size)
+
+# ... ici, le reste de ton code d’entraînement (création de l’env, du modèle, etc)
 
 def train_val_test_split(data, train_size=0.7, val_size=0.15):
     n = len(data)
@@ -60,19 +88,37 @@ def train():
     
     train_data, val_data, test_data = train_val_test_split(data, 0.7, 0.15)
 
-    env_train = TradingEnv(train_data, reward_type=REWARD_TYPE)
-    env_val   = TradingEnv(val_data,   reward_type=REWARD_TYPE)
-    env_test  = TradingEnv(test_data,  reward_type=REWARD_TYPE)
-
-    # 3) créer agent
-
-    model = get_q_model("TRANSFORMER")
+    env_train = TradingEnv(
+        train_data,
+        reward_type=REWARD_TYPE,
+        window_size=sequence_length  # utilisation de la variable lowercase
+    )
+    env_val   = TradingEnv(
+        val_data,
+        reward_type=REWARD_TYPE,
+        window_size=sequence_length
+    )
+    env_test   = TradingEnv(
+        test_data,
+        reward_type=REWARD_TYPE,
+        window_size=sequence_length
+    )
+    # 3) créer agent avec le TransformerQNet
+    model = TransformerQNet(
+        input_dim=Q_INPUT_DIM,       # reste en majuscule, c’est issu du config
+        seq_len=sequence_length,     # lowercase
+        d_model=q_embedding_dim,     # lowercase
+        nhead=nhead,                 # lowercase
+        num_layers=q_num_layers,     # lowercase
+        output_dim=Q_OUTPUT_DIM,     # issu du config
+        dropout=q_dropout            # lowercase
+    ).to(DEVICE)
     agent = DQNAgent(model)
 
     # 4) boucle d’entraînement simplifiée
     all_train_rewards = []
     all_val_rewards = []
-    best_val = 0
+    best_val = None
     patience = PATIENCE
     counter = 0
     best_model_path = "best_model_parameters.pt"
@@ -93,7 +139,8 @@ def train():
         agent.update_target()
         agent.epsilon = max(EPSILON_MIN, agent.epsilon * EPSILON_DECAY)
         val_reward = run_episode(env_val, agent)  # on minimise -reward
-        if (best_val == 0) or (val_reward > best_val) :
+        
+        if (best_val is None) or (val_reward > (best_val + THRESHOLD)):
             best_val = val_reward
             torch.save(agent.q_net.state_dict(), best_model_path)
             print(f"==> Model saved at epoch {ep+1} with val_loss: {val_reward:.4f}")

@@ -11,7 +11,7 @@ class TradingEnv(gym.Env):
     def __init__(self, data, price_series = prices, window_size=SEQUENCE_LENGTH, initial_cash=INITIAL_CASH,
      reward_type=REWARD_TYPE):
         super().__init__()
-        self.raw_prices = prices
+        self.raw_prices = price_series
         self.data = data  # numpy array ou DataFrame
         self.window_size = window_size
         self.initial_cash = initial_cash
@@ -64,32 +64,37 @@ class TradingEnv(gym.Env):
 
     
 
-    def step(self, action, buy_frac=1.0, sell_frac=1.0):
+    def step(self, action, buy_frac=BUY_FRAC, sell_frac=SELL_FRAC):
         """
         action = 1 : achète buy_frac de la trésorerie disponible
         action = 2 : vend sell_frac de la position détenue
         """
+        #print(f"sellfrac={sell_frac}")
         price = self.raw_prices[self.current_step][0]
         #print(f"prix{price}")
 
         # Achat
         if action == 1 and self.cash > 0:
             amount_to_spend = self.cash * buy_frac
+            fee = commission_rate * amount_to_spend
             shares_to_buy = amount_to_spend / price
             self.position += shares_to_buy
-            self.cash -= amount_to_spend
+            self.cash -= (amount_to_spend +fee)
 
         # Vente
         elif action == 2 and self.position > 0:
             shares_to_sell = self.position * sell_frac
             amount_received = shares_to_sell * price
+            fee = commission_rate * amount_received
             self.position -= shares_to_sell
-            self.cash += amount_received
+            self.cash += (amount_received - fee)
 
         # Avance d'un pas
         self.current_step += 1
         if self.current_step >= len(self.data):
             self.done = True
+        else:
+            price = self.raw_prices[self.current_step][0]
 
         # Nouvelle valeur du portefeuille (pour l'info)
         pv = self.cash + self.position * price

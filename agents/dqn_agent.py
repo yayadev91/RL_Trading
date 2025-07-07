@@ -6,7 +6,7 @@ import torch
 import numpy as np
 from models.transformer_q import TransformerQNet  # Ou le modèle que tu veux
 from agents.replay_buffer import ReplayBuffer
-
+import copy
 
 
 def get_q_model(model_type):
@@ -24,7 +24,7 @@ class DQNAgent:
     def __init__(self, model, device=DEVICE):
         self.device = device
         self.q_net = model.to(device)
-        self.target_q_net = type(model)().to(device)  # Instancie un modèle de même type que q_net
+        self.target_q_net = copy.deepcopy(self.q_net).to(device)  # Instancie un modèle de même type que q_net
         self.target_q_net.load_state_dict(self.q_net.state_dict())
         self.target_q_net.eval()
         self.optimizer = torch.optim.Adam(self.q_net.parameters(), lr=LR)
